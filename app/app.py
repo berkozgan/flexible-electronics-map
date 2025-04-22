@@ -103,6 +103,7 @@ if "Title" in df.columns:
     )
     st.plotly_chart(fig)
 
+
 # ====== FILTER PANEL ======
 st.sidebar.header("📌 Filter Options")
 
@@ -147,3 +148,70 @@ st.download_button(
     file_name='filtered_patents.csv',
     mime='text/csv',
 )
+
+# ====== INFRINGEMENT RISK CHECKER ======
+st.header("🚨 Infringement Risk Checker")
+
+if "Title" in df.columns and "PubYear" in df.columns and "Inventors" in df.columns:
+    titles = df["Title"].dropna().astype(str).tolist()
+    selected_title = st.selectbox("Select a Patent to Check for Infringement Risk", titles)
+
+    # Seçilen patentin detayları
+    selected_row = df[df["Title"] == selected_title].iloc[0]
+    selected_year = selected_row["PubYear"]
+    selected_inventors = str(selected_row["Inventors"]).lower()
+    selected_words = set(re.findall(r'\b[a-z]{3,}\b', selected_title.lower()))
+
+    # Aynı yıldaki diğer patentleri filtrele
+    same_year_df = df[(df["Title"] != selected_title) & (df["PubYear"] == selected_year)]
+
+    potential_conflicts = []
+
+    for idx, row in same_year_df.iterrows():
+        comp_title = str(row["Title"])
+        comp_inventors = str(row["Inventors"]).lower()
+
+        # Ortak kelimeler
+        comp_words = set(re.findall(r'\b[a-z]{3,}\b', comp_title.lower()))
+        shared_keywords = selected_words.intersection(comp_words)
+
+        # Ortak mucit kontrolü
+        shared_inventors = any(inv in comp_inventors for inv in selected_inventors.split(", "))
+
+        # Basit risk puanı: 0–1 arası
+        risk_score = 0
+        if shared_keywords:
+            risk_score += len(shared_keywords) * 0.1
+        if shared_inventors:
+            risk_score += 0.4
+        if comp_title.lower() in selected_title.lower() or selected_title.lower() in comp_title.lower():
+            risk_score += 0.3
+
+        if risk_score > 0.3:
+            potential_conflicts.append((comp_title, risk_score, shared_keywords, shared_inventors))
+
+    if potential_conflicts:
+        st.markdown("### ⚠️ Possible Infringement Alerts")
+        for title, score, keywords, inventors_match in sorted(potential_conflicts, key=lambda x: -x[1])[:5]:
+            matched_row = df[df["Title"] == title].iloc[0]
+
+            pub_number = matched_row.get("Publication number", "N/A")
+            pub_date = matched_row.get("Publication date", "N/A")
+            applicant = matched_row.get("Applicants", "N/A")
+            inventors = matched_row.get("Inventors", "N/A")
+            country_code = pub_number[:2] if isinstance(pub_number, str) else "N/A"
+
+            st.markdown(f"""
+            - **{title}**
+             📊 Risk Score: `{score:.2f}` {'🔴 High' if score > 0.7 else '🟠 Medium' if score > 0.4 else '🟡 Low'}  
+             🔑 Shared keywords: `{', '.join(keywords) if keywords else 'None'}`
+             👥 Inventor overlap: `{"Yes" if inventors_match else "No"}`
+             🌍 Country: `{country_code}`  
+             📅 Publication date: `{pub_date}`  
+             🏢 Applicant: `{applicant}`  
+             🧠 Inventors: `{inventors}`
+            """)
+
+    else:
+        st.success("✅ No significant infringement risks found for this patent.")
+
