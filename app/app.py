@@ -18,6 +18,12 @@ st.title("📄 Flexible Electronics Patent Explorer")
     #st.dataframe(df)  # Tam tabloyu göster
 df = pd.read_excel("data/Flexible Electronics 2020-2025 Data.xlsx")
 st.success("✅ Data Loaded from local file!")
+agree = st.checkbox("✅ I agree to the Terms of Service")
+
+if not agree:
+    st.warning("Please accept the terms to proceed.")
+    st.stop()
+
 st.dataframe(df)
 
 
