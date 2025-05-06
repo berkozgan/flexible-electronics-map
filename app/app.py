@@ -233,6 +233,20 @@ def main_app():
         file_name='filtered_patents.csv',
         mime='text/csv',
     )
+    # ====== XLSX Export (Filtered Results) ======
+    from io import BytesIO
+
+    excel_buffer = BytesIO()
+    filtered_df.to_excel(excel_buffer, index=False, engine='openpyxl')
+    excel_data = excel_buffer.getvalue()
+
+    st.download_button(
+        label="📥 Download Filtered Data as XLSX",
+        data=excel_data,
+        file_name="filtered_patents.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
 
     # ====== INFRINGEMENT RISK CHECKER ======
     st.header("🚨 Infringement Risk Checker")
